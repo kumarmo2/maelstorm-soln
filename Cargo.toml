@@ -3,6 +3,14 @@ name = "maelstrom-rs"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "echo"
+path = "src/bin/echo.rs"
+
+[[bin]]
+name = "unique"
+path = "src/bin/unique-id.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

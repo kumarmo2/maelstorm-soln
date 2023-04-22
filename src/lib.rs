@@ -1,7 +1,9 @@
 #![allow(dead_code, unused_imports)]
+use std::io::StdinLock;
 use std::io::StdoutLock;
 use std::io::Write;
 
+use anyhow::bail;
 use anyhow::Context;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -47,50 +49,42 @@ pub trait Node {
     ) -> anyhow::Result<()>;
 }
 
-pub fn main_loop<'a, N>() -> anyhow::Result<()>
+pub fn main_loop<N>() -> anyhow::Result<()>
 where
     N: Node,
     <N as Node>::Payload: DeserializeOwned,
 {
-    let mut node = {
-        let std_in = std::io::stdin().lock();
-        let mut std_out = std::io::stdout().lock();
-
-        let mut inputs =
-            serde_json::de::Deserializer::from_reader(std_in).into_iter::<Message<InitPayload>>();
-
-        let init_msg = inputs.next().context("could not get the init message")?;
-        let Ok(init_msg) = init_msg else {
-    panic!("could not get the init message deser working");
-    };
-
-        let InitPayload::Init { node_id, node_ids } = init_msg.body.payload  else {
-                    panic!("first message must be init message");
-    };
-        let node = N::from_init(InitPayload::Init {
-            node_id: node_id.clone(),
-            node_ids,
-        });
-
-        let body = Body {
-            msg_id: Some(0),
-            in_reply_to: init_msg.body.msg_id,
-            payload: InitPayload::InitOk {
-                in_reply_to: init_msg.body.msg_id.unwrap(),
-            },
-        };
-
-        let init_ok_msg = Message {
-            src: node_id.clone(),
-            dst: init_msg.src,
-            body,
-        };
-
-        serde_json::to_writer(&mut std_out, &init_ok_msg).context("could not write")?;
-        node
-    };
-    let std_in = std::io::stdin().lock();
+    let mut std_in = std::io::stdin().lock();
     let mut std_out = std::io::stdout().lock();
+
+    let init_msg: Message<InitPayload> = serde_json::de::Deserializer::from_reader(&mut std_in)
+        .into_iter()
+        .next()
+        .expect("no init message")?;
+
+    let InitPayload::Init { node_id, node_ids } = init_msg.body.payload  else {
+                    bail!("first message must be init message");
+    };
+    let mut node = N::from_init(InitPayload::Init {
+        node_id: node_id.clone(),
+        node_ids,
+    });
+
+    let body = Body {
+        msg_id: Some(0),
+        in_reply_to: init_msg.body.msg_id,
+        payload: InitPayload::InitOk {
+            in_reply_to: init_msg.body.msg_id.unwrap(),
+        },
+    };
+
+    let init_ok_msg = Message {
+        src: node_id.clone(),
+        dst: init_msg.src,
+        body,
+    };
+
+    serde_json::to_writer(&mut std_out, &init_ok_msg).context("could not write")?;
     std_out
         .write_all(b"\n")
         .context("could not write new line")?;
