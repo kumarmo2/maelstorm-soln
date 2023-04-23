@@ -11,6 +11,10 @@ path = "src/bin/echo.rs"
 name = "unique"
 path = "src/bin/unique-id.rs"
 
+[[bin]]
+name = "broadcast"
+path = "src/bin/broadcast.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
